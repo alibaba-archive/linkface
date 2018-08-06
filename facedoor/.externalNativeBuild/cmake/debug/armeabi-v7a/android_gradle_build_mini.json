@@ -1,0 +1,16 @@
+{
+  "buildFiles": [
+    "/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "/Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/cmake --build /Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/debug/armeabi-v7a --target clean"
+  ],
+  "libraries": {
+    "facedoor-Debug-armeabi-v7a": {
+      "artifactName": "facedoor",
+      "buildCommand": "/Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/cmake --build /Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/debug/armeabi-v7a --target facedoor",
+      "abi": "armeabi-v7a",
+      "output": "/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/build/intermediates/cmake/debug/obj/armeabi-v7a/libfacedoor.so"
+    }
+  }
+}

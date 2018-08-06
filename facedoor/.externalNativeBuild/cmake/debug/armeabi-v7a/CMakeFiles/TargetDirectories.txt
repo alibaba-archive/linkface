@@ -1,0 +1,3 @@
+/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/debug/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/debug/armeabi-v7a/CMakeFiles/rebuild_cache.dir
+/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/debug/armeabi-v7a/CMakeFiles/facedoor.dir

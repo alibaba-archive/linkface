@@ -1,0 +1,15 @@
+Executable : /Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/cmake
+arguments : 
+-H/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor
+-B/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/.externalNativeBuild/cmake/release/armeabi-v7a
+-DANDROID_ABI=armeabi-v7a
+-DANDROID_PLATFORM=android-21
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/Users/panchen/Documents/JNI1/DeviceFaceDetectJNI/facedoor/build/intermediates/cmake/release/obj/armeabi-v7a
+-DCMAKE_BUILD_TYPE=Release
+-DANDROID_NDK=/Users/panchen/Library/Android/sdk/ndk-bundle
+-DCMAKE_CXX_FLAGS=-g
+-DCMAKE_TOOLCHAIN_FILE=/Users/panchen/Library/Android/sdk/ndk-bundle/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/ninja
+-GAndroid Gradle - Ninja
+jvmArgs : 
+

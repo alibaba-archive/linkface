@@ -1,0 +1,3 @@
+/Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/.externalNativeBuild/cmake/debug/armeabi/CMakeFiles/edit_cache.dir
+/Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/.externalNativeBuild/cmake/debug/armeabi/CMakeFiles/rebuild_cache.dir
+/Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/.externalNativeBuild/cmake/debug/armeabi/CMakeFiles/facedoor.dir

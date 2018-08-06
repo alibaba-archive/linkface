@@ -1,0 +1,16 @@
+{
+  "buildFiles": [
+    "/Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "/Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/cmake --build /Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/.externalNativeBuild/cmake/debug/x86_64 --target clean"
+  ],
+  "libraries": {
+    "facedoor-Debug-x86_64": {
+      "artifactName": "facedoor",
+      "buildCommand": "/Users/panchen/Library/Android/sdk/cmake/3.6.4111459/bin/cmake --build /Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/.externalNativeBuild/cmake/debug/x86_64 --target facedoor",
+      "abi": "x86_64",
+      "output": "/Users/panchen/Documents/code/AndroidStudio/AndroidStudioNDKtest/facedoor/build/intermediates/cmake/debug/obj/x86_64/libfacedoor.so"
+    }
+  }
+}

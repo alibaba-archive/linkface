@@ -1,0 +1,13 @@
+# ninja log v5
+1	76	0	CMakeFiles/facedoor.dir/src/main/jni/lite_queue.c.o	7e93b7e50ba1e00e
+0	78	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_sample.c.o	69b5e7a072ba8cb7
+0	81	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_export.c.o	ee56702b8d9b11c1
+1	84	0	CMakeFiles/facedoor.dir/src/main/jni/lite_queue.c.o	7e93b7e50ba1e00e
+1	84	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_sample.c.o	69b5e7a072ba8cb7
+1	87	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_export.c.o	ee56702b8d9b11c1
+2	85	0	CMakeFiles/facedoor.dir/src/main/jni/lite_queue.c.o	cea59c20e6aa2a9d
+1	86	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_sample.c.o	c2ad1487cba640eb
+1	88	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_export.c.o	710adb4541c335ba
+1	91	0	CMakeFiles/facedoor.dir/src/main/jni/lite_queue.c.o	7e93b7e50ba1e00e
+1	91	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_export.c.o	ee56702b8d9b11c1
+1	93	0	CMakeFiles/facedoor.dir/src/main/jni/linkkit_sample.c.o	69b5e7a072ba8cb7

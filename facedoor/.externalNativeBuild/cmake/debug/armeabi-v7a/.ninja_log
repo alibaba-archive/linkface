@@ -1,0 +1,5 @@
+# ninja log v5
+0	294	0	CMakeFiles/facedoor.dir/src/main/jni/facedoor.c.o	73d235a4c6d2f270
+295	532	0	../../../../build/intermediates/cmake/debug/obj/armeabi-v7a/libfacedoor.so	ae7e450f7c451bcd
+2	274	0	CMakeFiles/facedoor.dir/src/main/jni/facedoor.c.o	73d235a4c6d2f270
+275	496	0	../../../../build/intermediates/cmake/debug/obj/armeabi-v7a/libfacedoor.so	ae7e450f7c451bcd
