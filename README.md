@@ -10,3 +10,5 @@
 源码结构说明：
 1:源码都在facedoor目录下；
 2:libs下存放了不同arm架构和AndroidAPI的库文件，使用者根据自己芯片及androidAPI版本自行选择。
+3.facedoor.c的handle_service_input函数处理具体消息，使用者可以在这个接口中添加除人脸识别外的自己的业务逻辑。
+4.FaceDoor.java提供了对外的API。
