@@ -57,7 +57,7 @@
 /* specify ota buffer size for ota service, ota service will use this buffer for bin download. */
 #define OTA_BUFFER_SIZE                  (512+1)
 
-//tingyi 人脸库属性全局变量
+//人脸库属性全局变量
 char  g_ProductKey[64] = {0};
 char  g_DeviceName[64] = {0};
 char  g_DeviceSecret[64] = {0};
@@ -66,7 +66,6 @@ int   g_ServerPort = -1;
 char  g_PackageName[128] = {0};
 char  g_Me[128] = {0};
 char  g_ClientId[128] = {0};
-char  g_AddedFaceStorID[64] = {0};
 float g_SyncRate = 1.0;
 char  g_faceID[64] = {0};
 float g_score = 0;
@@ -75,6 +74,10 @@ char  *g_FaceMatchedData = NULL;
 int   g_outlen = 1024*1024;
 bool  g_IsDetectedUploading = JNI_FALSE;
 bool  g_IsMatchedUploading = JNI_FALSE;
+char  *g_AddedUserInfoBuff = NULL;
+pthread_mutex_t g_AddedUserInfoBuffLock;
+
+
 
 char gc_licenseData[4096] = {0};
 linkkit_facedoor_property_t g_stFaceDoorProperty = {0};
@@ -94,7 +97,7 @@ void post_property_cb(const void* thing_id, int respons_id, int code, const char
 }
 
 /**
- * @auther tingyi
+ * @auther
  * @brief 设备人脸比对事件上报
  *
  * @param[in] sample_context_t *sample
@@ -105,8 +108,55 @@ void post_property_cb(const void* thing_id, int respons_id, int code, const char
 static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pcFaceMatchedPicStorID, float fSimilarity)
 {
     int  ret = 0;
+    int  i = 0;
+    char *pFaceID = NULL;
+    char *pUserInfo = NULL;
+    char *pEnd = NULL;
     char event_output_identifier[64];
     char acFaceGroupIDTmp[32] = {0};
+    char userInfo[255] = {0};
+
+
+    /* 找出pcUserPicID的属性信息 */
+    pthread_mutex_lock(&g_AddedUserInfoBuffLock);
+
+    LOGI("pcUserPicID is [%s]\n", pcUserPicID);
+
+    pFaceID = strstr(g_AddedUserInfoBuff, pcUserPicID);
+    if (NULL == pFaceID)
+    {
+        LOGE("Err FaceID [%s]\n", pcUserPicID);
+        return;
+    }
+    LOGI("pFaceID is [%s]\n", pFaceID);
+
+    pUserInfo = strstr(pFaceID, "userInfo");
+    if (NULL == pUserInfo)
+    {
+        LOGE("userInfo is NULL\n");
+        return;
+    }
+    LOGI("pUserInfo is [%s]\n", pUserInfo);
+
+    pEnd = pUserInfo+11;
+
+    LOGI("pEnd is [%s]\n", pEnd);
+
+
+    while(pEnd[i] != '\"')
+    {
+        i++;
+    }
+
+    strncpy(userInfo, pEnd, i);
+    LOGI("userInfo is [%s]\n", userInfo);
+    pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
+
+    snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s", "OnMatched", "UserInfo");
+    linkkit_set_value(linkkit_method_set_event_output_value,
+                      sample->thing,
+                      event_output_identifier,
+                      userInfo, NULL);
 
     snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s", "OnMatched", "UserPicID");
     linkkit_set_value(linkkit_method_set_event_output_value,
@@ -155,7 +205,7 @@ static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pc
 
 
 /**
- * @auther tingyi
+ * @auther
  * @brief 设备人脸检测事件上报
  *
  * @param[in] sample_context_t *sample
@@ -201,7 +251,7 @@ static void post_OnDetected(sample_context_t* sample, char *pcFaceMatchedPicStor
 }
 
 /**
- * @auther tingyi
+ * @auther
  * @brief 属性信息写配置文件
  *
  * @return 0-成功，-1-失败
@@ -279,7 +329,6 @@ static int write_property(void)
 }
 
 /**
- * tingyi
  * 从文件中获取'属性'数据，写入到全局变量g_stFaceDoorProperty中
  */
 static int read_property(void)
@@ -437,7 +486,7 @@ void *threadSyncFaces(char *pcURL)
 }
 
 /**
- * @auther tingyi
+ * @auther
  * @brief 解析TMP下发的服务信息
  *
  * @param[in] sample_context_t *sample
@@ -1116,6 +1165,8 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
     pthread_t  pid;
     unsigned long long now = 0;
     unsigned long long prev_sec = 0;
+    fpos_t fpos; //当前位置
+    int    fileLenth = 0;
     const char *pdKey = (*env)->GetStringUTFChars(env, pdKey_, 0);
     const char *dvKey = (*env)->GetStringUTFChars(env, dvKey_, 0);
     const char *dvSec = (*env)->GetStringUTFChars(env, dvSec_, 0);
@@ -1133,6 +1184,34 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
     strncpy(g_ServerURL, ServerURL, sizeof(g_ServerURL));
     g_ServerPort = ServerPort;
 
+    pthread_mutex_init(&g_AddedUserInfoBuffLock, NULL);
+
+    LOGI("aaa!!!\n");
+    if (NULL == g_AddedUserInfoBuff)
+    {
+        FILE *p = fopen("/sdcard/AddedUser", "rb");
+
+        if (p != NULL)
+        {
+            fgetpos(p, &fpos); //获取当前位置
+            fseek(p, 0, SEEK_END);
+            fileLenth = ftell(p);
+            fsetpos(p,&fpos); //恢复之前的位置
+
+            g_AddedUserInfoBuff = (char *)malloc(fileLenth+1);
+            if (g_AddedUserInfoBuff == NULL)
+            {
+                LOGE("No Memory!\n");
+                return;
+            }
+            bzero(g_AddedUserInfoBuff, fileLenth+1);
+
+            fgets(g_AddedUserInfoBuff, fileLenth, p);
+            fclose(p);
+        }
+
+    }
+
     if (NULL == g_FaceDetectedData)
     {
         g_FaceDetectedData = (char *) malloc(g_outlen);
@@ -1142,6 +1221,7 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
             LOGI("ERR: Malloc mem failed!\n");
         }
     }
+
     if (NULL == g_FaceMatchedData)
     {
         g_FaceMatchedData = (char*)malloc(g_outlen);
@@ -1151,6 +1231,9 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
             LOGI("ERR: Malloc mem failed!\n");
         }
     }
+
+
+
     //读取property属性文件
     read_property();
 
@@ -1261,6 +1344,25 @@ Java_pc_tingyi_facedoor_FaceDoor_RefreashAddedUserInfo(JNIEnv *env, jobject inst
     const char *AddedUserInfo = (*env)->GetStringUTFChars(env, AddedUserInfo_, 0);
 
     FILE *p = NULL;
+
+    pthread_mutex_lock(&g_AddedUserInfoBuffLock);
+    if (NULL != g_AddedUserInfoBuff)
+    {
+        free(g_AddedUserInfoBuff);
+        g_AddedUserInfoBuff = NULL;
+    }
+
+    g_AddedUserInfoBuff = (char *)malloc(strlen(AddedUserInfo)+1);
+    if (NULL == g_AddedUserInfoBuff)
+    {
+        LOGE("Out of memory!\n");
+        pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
+        return;
+    }
+    bzero(g_AddedUserInfoBuff, strlen(AddedUserInfo));
+    strncpy(g_AddedUserInfoBuff, AddedUserInfo, strlen(AddedUserInfo));
+    LOGI("g_AddedUserInfoBuff===>>>{%s}\n", g_AddedUserInfoBuff);
+    pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
 
     p = fopen("/sdcard/AddedUser", "w");
 
