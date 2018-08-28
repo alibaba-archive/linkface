@@ -17,7 +17,6 @@
  */
 
 #include "stdio.h"
-#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -66,6 +65,7 @@ int   g_ServerPort = -1;
 char  g_PackageName[128] = {0};
 char  g_Me[128] = {0};
 char  g_ClientId[128] = {0};
+char  g_Token[128] = {0};
 float g_SyncRate = 1.0;
 char  g_faceID[64] = {0};
 float g_score = 0;
@@ -88,12 +88,12 @@ jobject g_obj;
 
 void post_event_cb(const void* thing_id, int respons_id, int code, const char* response_message, void* ctx)
 {
-    LINKKIT_PRINTF("This is callback func!\n");
+    LOGI("This is callback func!\n");
 }
 
 void post_property_cb(const void* thing_id, int respons_id, int code, const char* response_message, void* ctx)
 {
-    LINKKIT_PRINTF("thing@%p: response arrived:\nid:%d\tcode:%d\tmessage:%s\n", thing_id, respons_id, code, response_message == NULL ? "NULL" : response_message);
+    LOGI("thing@%p: response arrived:\nid:%d\tcode:%d\tmessage:%s\n", thing_id, respons_id, code, response_message == NULL ? "NULL" : response_message);
 }
 
 /**
@@ -116,16 +116,17 @@ static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pc
     char acFaceGroupIDTmp[32] = {0};
     char userInfo[255] = {0};
 
-
+    fSimilarity *= 100;
     /* 找出pcUserPicID的属性信息 */
     pthread_mutex_lock(&g_AddedUserInfoBuffLock);
 
-    LOGI("pcUserPicID is [%s]\n", pcUserPicID);
+    LOGI("pcUserPicID is [%s]+++g_AddedUserInfoBuff is [%s]\n", pcUserPicID, g_AddedUserInfoBuff);
 
     pFaceID = strstr(g_AddedUserInfoBuff, pcUserPicID);
     if (NULL == pFaceID)
     {
         LOGE("Err FaceID [%s]\n", pcUserPicID);
+        pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
         return;
     }
     LOGI("pFaceID is [%s]\n", pFaceID);
@@ -134,6 +135,7 @@ static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pc
     if (NULL == pUserInfo)
     {
         LOGE("userInfo is NULL\n");
+        pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
         return;
     }
     LOGI("pUserInfo is [%s]\n", pUserInfo);
@@ -143,7 +145,7 @@ static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pc
     LOGI("pEnd is [%s]\n", pEnd);
 
 
-    while(pEnd[i] != '\"')
+    while ((pEnd[i] != '\"') && (pEnd[i] != '\0'))
     {
         i++;
     }
@@ -188,16 +190,15 @@ static void post_OnMatched(sample_context_t* sample, char *pcUserPicID, char *pc
                       event_output_identifier,
                       acFaceGroupIDTmp, NULL);
 
-    LOGI("event_output_identifier:%s\n", event_output_identifier);
     LOGI("g_stFaceDoorProperty.acFaceGroupID=%s\n", acFaceGroupIDTmp);
     ret = linkkit_trigger_event(sample->thing, "OnMatched", post_event_cb);
     if (ret > 0)
     {
-        LOGI("send id:%d\n", ret);
+        LOGI("post_OnMatched--->send success:%d\n", ret);
     }
     else
     {
-        LOGI("send err id333:%d\n", ret);
+        LOGE("post_OnMatched--->send err:%d\n", ret);
     }
 
     return;
@@ -236,15 +237,14 @@ static void post_OnDetected(sample_context_t* sample, char *pcFaceMatchedPicStor
                       event_output_identifier,
                       acFaceGroupIDTmp, NULL);
 
-    LOGI("Time Print3\n");
     ret = linkkit_trigger_event(sample->thing, "OnDetect", post_event_cb);
     if (ret > 0)
     {
-        LOGI("send id:%d\n", ret);
+        LOGI("post_OnDetected--->send id:%d\n", ret);
     }
     else
     {
-        LOGI("send err id333:%d\n", ret);
+        LOGE("post_OnDetected--->send err:%d\n", ret);
     }
 
     return;
@@ -265,7 +265,7 @@ static int write_property(void)
     pf = fopen("/sdcard/property", "w+");
     if (NULL == pf)
     {
-        LOGI("failed to open file property\n");
+        LOGE("failed to open file property\n");
         return -1;
     }
 
@@ -347,21 +347,18 @@ static int read_property(void)
         memset(&g_stFaceDoorProperty, 0, sizeof(g_stFaceDoorProperty));
         g_stFaceDoorProperty.iFaceSetPicStoreAbility = 200000;
         g_stFaceDoorProperty.dOnMatchThreshOld = 85.00;
-        strncpy(g_stFaceDoorProperty.acFaceSetID, "ModianRenlianku\n", strlen("ModianRenlianku\n"));
+        strncpy(g_stFaceDoorProperty.acFaceSetID, "FaceDetect\n", strlen("FaceDetect\n"));
         strncpy(g_stFaceDoorProperty.acFaceSetAlgorithmVersion, "1.1.1\n", strlen("1.1.1\n"));
         strncpy(g_stFaceDoorProperty.acFaceSetMD5Sign, "AAAAAAAAAABBBBBBBBBBCCCCCCCCCC32\n", strlen("AAAAAAAAAABBBBBBBBBBCCCCCCCCCC32\n"));
         strncpy(g_stFaceDoorProperty.acFaceGroupID, "\n", strlen("\n"));
         write_property();
-        LOGI("failed to open file property\n");
         pf = fopen("/sdcard/property", "r");
         if (NULL == pf)
         {
-            LOGI("Failed to open file property! Return from read_property!\n");
+            LOGE("read_property---->Failed to open file property! Return from read_property!\n");
             return -1;
         }
     }
-
-    LOGI("pfpfpf's addr = %x\n", pf);
 
     memset(cBuff, 0, sizeof(cBuff));
     memset(cBuffTmp, 0, sizeof(cBuffTmp));
@@ -369,13 +366,15 @@ static int read_property(void)
 
     while(fgets(cBuff, sizeof(cBuff), pf))
     {
-        LINKKIT_PRINTF("cBuff info:%s\n",cBuff);
+        LOGI("cBuff info:%s\n",cBuff);
 
         pcBegin = &cBuff[0];
         pcEnd = strstr(cBuff,":")+1;
         if (NULL == pcEnd)
         {
-            LINKKIT_PRINTF("pcEnd is NULL");
+            fclose(pf);
+            LOGE("read_property---->pcEnd is NULL, return\n");
+            return -1;
         }
 
         memcpy(cBuffTmp, cBuff, pcEnd-pcBegin);
@@ -434,55 +433,6 @@ static int read_property(void)
     fclose(pf);
 
     return 0;
-}
-
-void *threadSyncFaces(char *pcURL)
-{
-    LOGI("Call threadSyncFaces\n");
-
-    //todo: 回调java方法，下载批量布控人脸图文件
-    JNIEnv *env = NULL;
-    bool isAttached = JNI_FALSE;
-    int status;
-
-    //从全局的JavaVM中获取到环境变量
-    //(*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL);
-
-
-    status =(*g_jvm)->GetEnv(g_jvm, (void**)&env, JNI_VERSION_1_4);
-    LOGI("Call threadSyncFaces111\n");
-    if(status < 0)
-    {
-        LOGI("Call threadSyncFaces222\n");
-        (*g_jvm)->AttachCurrentThread(g_jvm,&env, NULL);//将当前线程注册到虚拟机中．
-        isAttached = JNI_TRUE;
-    }
-
-    LOGI("Call threadSyncFaces333\n");
-
-    //获取Java类
-    jclass claxx = (*env)->FindClass(env, "pc/tingyi/facedoor/FaceDoor");
-    //jclass claxx = (*env)->FindClass(env, g_obj);
-    if (NULL == claxx)
-    {
-        LOGI("(*env)->FindClass err!!\n");
-        return 0;
-    }
-
-    //获取回调函数
-    jmethodID method= (*env)->GetMethodID(env, claxx, "OnSyncFacePictures", "(Ljava/lang/String;)V");
-    if (NULL == method)
-    {
-        LOGI("(*env)->GetMethodID err!!\n");
-        return 0;
-    }
-
-    jstring FacePicturesURL = (*env)->NewStringUTF(env, pcURL);
-    (*env)->CallVoidMethod(env, g_obj, method, FacePicturesURL);
-
-    LOGI("pcURL===%s\n", pcURL);
-
-    return NULL;
 }
 
 /**
@@ -621,7 +571,7 @@ static int handle_service_input(sample_context_t* sample, const void* thing, con
                                    service_output_identifier,
                                    &doAuthOK, NULL))
         {
-            LOGI("service_output_identifier@@@ err is [%s]\n", service_output_identifier);
+            LOGE("service_output_identifier@@@ err is [%s]\n", service_output_identifier);
         }
         linkkit_answer_service(thing, "AuthVerifySDK", request_id, 200, rrpc);
 
@@ -672,12 +622,6 @@ static int handle_service_input(sample_context_t* sample, const void* thing, con
             jmethodID method= (*env)->GetMethodID(env, claxx, "OnSyncFacePictures", "(Ljava/lang/String;)V");
             jstring FacePicturesURL = (*env)->NewStringUTF(env, sample->FacePicturesURL);
 
-            //if (0 != pthread_create(&pid, NULL, threadSyncFaces, sample->FacePicturesURL))
-            //{
-            //    LOGI("pthread_create1 failed!\n");
-            //}
-
-
             (*env)->CallVoidMethod(env, g_obj, method, FacePicturesURL);
             //write_property();
         }
@@ -690,6 +634,7 @@ static int handle_service_input(sample_context_t* sample, const void* thing, con
         /* 布控进度不为100%时，直接返回状态；如果不是在布控中则需要重新将AddUserInfo上传OSS重新获取新的StoreID传给平台*/
         if (g_SyncRate != 1.00)
         {
+            LOGI("g_SyncRate=%f\n", g_SyncRate);
             SyncStatus = 1;   //状态：布控中
         }
         snprintf(service_output_identifier, sizeof(service_output_identifier), "%s.%s", "QueryAddedUserInfo", "StoreID");
@@ -725,8 +670,6 @@ static int handle_service_input(sample_context_t* sample, const void* thing, con
     /* 云端比对结果 */
     else if (strcmp(service_identifier, "FaceCompareResult") == 0)
     {
-        LOGI("Time Print4\n\n\n\n");
-
         char faceID[64] = {0};
         float similarity = 0.0;
 
@@ -786,10 +729,10 @@ static int on_connect(void* ctx)
     } else {
         sample_ctx->local_connected = 1;
     }
-    LINKKIT_PRINTF("%s is connected\n", cloud ? "cloud" : "local");
+    LOGI("%s is connected\n", cloud ? "cloud" : "local");
 #else
     sample_ctx->cloud_connected = 1;
-    LINKKIT_PRINTF("%s is connected\n", "cloud");
+    LOGI("%s is connected\n", "cloud");
 #endif
 
     return 0;
@@ -809,10 +752,10 @@ static int on_disconnect(void* ctx)
     } else {
         sample_ctx->local_connected = 0;
     }
-    LINKKIT_PRINTF("%s is disconnect\n", cloud ? "cloud" : "local");
+    LOGI("%s is disconnect\n", cloud ? "cloud" : "local");
 #else
     sample_ctx->cloud_connected = 0;
-    LINKKIT_PRINTF("%s is disconnect\n", "cloud");
+    LOGI("%s is disconnect\n", "cloud");
 #endif
     return 0;
 }
@@ -821,7 +764,7 @@ static int raw_data_arrived(const void* thing_id, const void* data, int len, voi
 {
     char raw_data[128] = {0};
 
-    LINKKIT_PRINTF("raw data arrived,len:%d\n", len);
+    LOGI("raw data arrived,len:%d\n", len);
 
     /* do user's raw data process logical here. */
 
@@ -840,7 +783,7 @@ static int thing_create(const void* thing_id, void* ctx)
 {
     sample_context_t* sample_ctx = ctx;
 
-    LINKKIT_PRINTF("new thing@%p created.\n", thing_id);
+    LOGI("new thing@%p created.\n", thing_id);
     sample_ctx->thing = thing_id;
 
     return 0;
@@ -884,7 +827,8 @@ static int thing_prop_changed(const void* thing_id, const char* property, void* 
     char property_buf[64] = {0};
 
     /* get new property value */
-    if (strstr(property, "HSVColor") != 0) {
+    if (strstr(property, "HSVColor") != 0)
+    {
         int hue, saturation, value;
 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Hue");
@@ -896,10 +840,12 @@ static int thing_prop_changed(const void* thing_id, const char* property, void* 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Value");
         linkkit_get_value(linkkit_method_get_property_value, thing_id, property_buf, &value, &value_str);
 
-        LINKKIT_PRINTF("property(%s), Hue:%d, Saturation:%d, Value:%d\n", property, hue, saturation, value);
+        LOGI("property(%s), Hue:%d, Saturation:%d, Value:%d\n", property, hue, saturation, value);
 
         /* XXX: do user's process logical here. */
-    } else if (strstr(property, "HSLColor") != 0) {
+    }
+    else if (strstr(property, "HSLColor") != 0)
+    {
         int hue, saturation, lightness;
 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Hue");
@@ -911,9 +857,11 @@ static int thing_prop_changed(const void* thing_id, const char* property, void* 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Lightness");
         linkkit_get_value(linkkit_method_get_property_value, thing_id, property_buf, &lightness, &value_str);
 
-        LINKKIT_PRINTF("property(%s), Hue:%d, Saturation:%d, Lightness:%d\n", property, hue, saturation, lightness);
+        LOGI("property(%s), Hue:%d, Saturation:%d, Lightness:%d\n", property, hue, saturation, lightness);
         /* XXX: do user's process logical here. */
-    }  else if (strstr(property, "RGBColor") != 0) {
+    }
+    else if (strstr(property, "RGBColor") != 0)
+    {
         int red, green, blue;
 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Red");
@@ -925,12 +873,14 @@ static int thing_prop_changed(const void* thing_id, const char* property, void* 
         snprintf(property_buf, sizeof(property_buf), "%s.%s", property, "Blue");
         linkkit_get_value(linkkit_method_get_property_value, thing_id, property_buf, &blue, &value_str);
 
-        LINKKIT_PRINTF("property(%s), Red:%d, Green:%d, Blue:%d\n", property, red, green, blue);
+        LOGI("property(%s), Red:%d, Green:%d, Blue:%d\n", property, red, green, blue);
         /* XXX: do user's process logical here. */
-    } else {
+    }
+    else
+    {
         linkkit_get_value(linkkit_method_get_property_value, thing_id, property, NULL, &value_str);
 
-        LINKKIT_PRINTF("property(%s) new value set: %s\n", property, value_str);
+        LOGI("property(%s) new value set: %s\n", property, value_str);
     }
 
     /* do user's process logical here. */
@@ -940,7 +890,7 @@ static int thing_prop_changed(const void* thing_id, const char* property, void* 
 
 static int linkit_data_arrived(const void* thing_id, const void* params, int len, void* ctx)
 {
-    LINKKIT_PRINTF("thing@%p: masterdev_linkkit_data(%d byte): %s\n", thing_id, len, (const char*)params);
+    LOGI("thing@%p: masterdev_linkkit_data(%d byte): %s\n", thing_id, len, (const char*)params);
     return 0;
 }
 
@@ -986,7 +936,7 @@ static int is_active(sample_context_t* sample_ctx)
 static void NeedAuth(char * PackageName, char * ClientID, char * PublicKey)
 {
     int  ret = 0;
-    char event_output_identifier[64];
+    char event_output_identifier[128];
 
     LOGI("*PackageName===%s\n", PackageName);
     LOGI("*ClientID===%s\n", ClientID);
@@ -995,7 +945,7 @@ static void NeedAuth(char * PackageName, char * ClientID, char * PublicKey)
     snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s",
              "NeedAuthVerifySDK", "PackageName");
 
-    LOGI("*event_output_identifier111===%s\n", event_output_identifier);
+    LOGI("*event_output_identifier---->%s\n", event_output_identifier);
 
     linkkit_set_value(linkkit_method_set_event_output_value,
                       g_sample_context.thing,
@@ -1008,7 +958,7 @@ static void NeedAuth(char * PackageName, char * ClientID, char * PublicKey)
     linkkit_set_value(linkkit_method_set_event_output_value,
                       g_sample_context.thing,
                       event_output_identifier,
-                      /*ClientID*/PublicKey, NULL);
+                      ClientID, NULL);
 
     snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s",
              "NeedAuthVerifySDK", "PublicKey");
@@ -1016,15 +966,24 @@ static void NeedAuth(char * PackageName, char * ClientID, char * PublicKey)
     linkkit_set_value(linkkit_method_set_event_output_value,
                       g_sample_context.thing,
                       event_output_identifier,
-                      /*PublicKey*/ ClientID, NULL);
+                      PublicKey, NULL);
+
+    snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s",
+                 "NeedAuthVerifySDK", "Token");
+
+    linkkit_set_value(linkkit_method_set_event_output_value,
+                      g_sample_context.thing,
+                      event_output_identifier,
+                      g_Token, NULL);
+
     ret = linkkit_trigger_event(g_sample_context.thing, "NeedAuthVerifySDK", NULL);
     if (ret > 0)
     {
-        LOGI("send id:%d\n", ret);
+        LOGI("send success:%d\n", ret);
     }
     else
     {
-        LOGI("send err id:%d\n", ret);
+        LOGE("send err id:%d\n", ret);
     }
 }
 
@@ -1038,7 +997,9 @@ int file_upload_callback1(int result ,char *store_id, void *user_data)
         write_property();
     }
     else
-        LOGI("file callback1 name:%s upload fail: %d\n", (char *)user_data, result);
+    {
+        LOGE("file_upload_callback1:%s upload fail: %d\n", (char *)user_data, result);
+    }
 
     return 1;
 }
@@ -1051,9 +1012,9 @@ void* thread1(void *user_data)
 
     if (file_name != NULL)
     {
-        LOGI("name name :%s\n", (char *)file_name);
+        LOGI("thread1 filename :%s\n", file_name);
         ret = iotx_upload_file_async(file_name, type, file_upload_callback1, user_data);
-        LOGI("the result is %d\n", ret);
+        LOGI("the ret of iotx_upload_file_async is %d\n", ret);
     }
 
     return NULL;
@@ -1068,7 +1029,9 @@ int onMatched_Face_upload_callback(int result ,char *store_id, void *user_data)
         post_OnMatched(&g_sample_context, g_faceID, store_id, g_score);
     }
     else
-        LOGI("file callback1 name:%s upload fail: %d\n", (char *)user_data, result);
+    {
+        LOGI("onMatched_Face_upload_callback:%s upload fail: %d\n", (char *)user_data, result);
+    }
 
     g_IsMatchedUploading = JNI_FALSE;
 
@@ -1083,19 +1046,16 @@ void* thread2(void *user_data)
 
     if (file_name != NULL)
     {
-        LOGI("name name :%s\n", (char *)file_name);
+        LOGI("thread2 filename :%s\n", file_name);
         ret = iotx_upload_file_async(file_name, type, onMatched_Face_upload_callback, user_data);
-        LOGI("the result is %d\n", ret);
+        LOGI("the ret of iotx_upload_file_async is %d\n", ret);
     }
 
     return NULL;
 }
 
-
-
 int onMatched_Face_upload_callbackFD(int result ,char *store_id, void *user_data)
 {
-    LOGI("Time Print2\n");
     if (result == 0)
     {
         LOGI("onMatched_Face_upload_callbackFD:%s upload success: %s\n", (char *)user_data,
@@ -1104,8 +1064,9 @@ int onMatched_Face_upload_callbackFD(int result ,char *store_id, void *user_data
         post_OnDetected(&g_sample_context, store_id);
     }
     else
-        LOGI("file callback1 nameFD:%s upload fail: %d\n", (char *)user_data, result);
-
+    {
+        LOGI("onMatched_Face_upload_callbackFD:%s upload fail: %d\n", (char *)user_data, result);
+    }
     g_IsDetectedUploading = JNI_FALSE;
 
     return 1;
@@ -1119,11 +1080,11 @@ void* thread2FD(void *user_data)
 
     if (file_name != NULL)
     {
-        LOGI("name name :%s\n", (char *)file_name);
+        LOGI("thread2FD filename :%s\n", file_name);
 
         ret = iotx_upload_file_async(file_name, type, onMatched_Face_upload_callbackFD, user_data);
 
-        LOGI("the result is %d\n", ret);
+        LOGI("the ret of iotx_upload_file_async is %d\n", ret);
     }
 
     return NULL;
@@ -1154,6 +1115,7 @@ void* thread_http2(void *user_data)
 JNIEXPORT void JNICALL
 Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, jstring pdKey_,
                                                jstring dvKey_, jstring dvSec_, jstring productKey_,
+                                               jstring token_,
                                                jstring deviceKey_, jstring deviceSecret_,
                                                jstring ServerURL_, jint ServerPort,
                                                jobject MessageCallbackTmp) {
@@ -1171,6 +1133,7 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
     const char *dvKey = (*env)->GetStringUTFChars(env, dvKey_, 0);
     const char *dvSec = (*env)->GetStringUTFChars(env, dvSec_, 0);
     const char *productKey = (*env)->GetStringUTFChars(env, productKey_, 0);
+    const char *token = (*env)->GetStringUTFChars(env, token_, 0);
     const char *deviceKey = (*env)->GetStringUTFChars(env, deviceKey_, 0);
     const char *deviceSecret = (*env)->GetStringUTFChars(env, deviceSecret_, 0);
     const char *ServerURL = (*env)->GetStringUTFChars(env, ServerURL_, 0);
@@ -1182,139 +1145,139 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
     strncpy(g_Me, deviceKey, sizeof(g_Me));
     strncpy(g_ClientId, deviceSecret, sizeof(g_ClientId));
     strncpy(g_ServerURL, ServerURL, sizeof(g_ServerURL));
+    strncpy(g_Token, token, sizeof(g_Token));
     g_ServerPort = ServerPort;
 
-    pthread_mutex_init(&g_AddedUserInfoBuffLock, NULL);
+    LOGI("Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo Token == %s\n", g_Token);
 
-    LOGI("aaa!!!\n");
-    if (NULL == g_AddedUserInfoBuff)
+    do
     {
-        FILE *p = fopen("/sdcard/AddedUser", "rb");
+        pthread_mutex_init(&g_AddedUserInfoBuffLock, NULL);
 
-        if (p != NULL)
+        if (NULL == g_AddedUserInfoBuff)
         {
-            fgetpos(p, &fpos); //获取当前位置
-            fseek(p, 0, SEEK_END);
-            fileLenth = ftell(p);
-            fsetpos(p,&fpos); //恢复之前的位置
+            FILE *p = fopen("/sdcard/AddedUser", "rb");
 
-            g_AddedUserInfoBuff = (char *)malloc(fileLenth+1);
-            if (g_AddedUserInfoBuff == NULL)
+            if (p != NULL)
             {
-                LOGE("No Memory!\n");
-                return;
+                fgetpos(p, &fpos); //获取当前位置
+                fseek(p, 0, SEEK_END);
+                fileLenth = ftell(p);
+                fsetpos(p,&fpos); //恢复之前的位置
+
+                g_AddedUserInfoBuff = (char *)malloc(fileLenth+1);
+                if (g_AddedUserInfoBuff == NULL)
+                {
+                    LOGE("No Memory!\n");
+					fclose(p);
+                    break;
+                }
+                bzero(g_AddedUserInfoBuff, fileLenth+1);
+
+                fgets(g_AddedUserInfoBuff, fileLenth, p);
+                fclose(p);
             }
-            bzero(g_AddedUserInfoBuff, fileLenth+1);
 
-            fgets(g_AddedUserInfoBuff, fileLenth, p);
-            fclose(p);
         }
-
-    }
-
-    if (NULL == g_FaceDetectedData)
-    {
-        g_FaceDetectedData = (char *) malloc(g_outlen);
 
         if (NULL == g_FaceDetectedData)
         {
-            LOGI("ERR: Malloc mem failed!\n");
-        }
-    }
+            g_FaceDetectedData = (char *) malloc(g_outlen);
 
-    if (NULL == g_FaceMatchedData)
-    {
-        g_FaceMatchedData = (char*)malloc(g_outlen);
+            if (NULL == g_FaceDetectedData)
+            {
+                LOGE("ERR: Malloc mem failed!\n");
+            }
+        }
 
         if (NULL == g_FaceMatchedData)
         {
-            LOGI("ERR: Malloc mem failed!\n");
-        }
-    }
+            g_FaceMatchedData = (char*)malloc(g_outlen);
 
-
-
-    //读取property属性文件
-    read_property();
-
-    (*env)->GetJavaVM(env, &g_jvm);
-    g_obj = (*env)->NewGlobalRef(env, instance);
-
-    //起HTTP2线程
-    if (0 != pthread_create(&pid, NULL, thread_http2, NULL))
-    {
-        printf("pthread_create1 failed!\n");
-        return;
-    }
-    execution_time = execution_time < 1 ? 1 : execution_time;
-    LINKKIT_PRINTF("sample execution time: %d minutes\n", execution_time);
-    LINKKIT_PRINTF("%s tsl from cloud\n", get_tsl_from_cloud == 0 ? "Not get" : "get");
-    HAL_SetProductKey(pdKey);
-    HAL_SetDeviceName(dvKey);
-    HAL_SetDeviceSecret(dvSec);
-
-    memset(sample_ctx, 0, sizeof(sample_context_t));
-    sample_ctx->thing_enabled = 1;
-
-    while (0 > linkkit_start(8, get_tsl_from_cloud, linkkit_loglevel_debug, &alink_ops, linkkit_cloud_domain_shanghai, sample_ctx))
-    {
-        LOGI("Call linkkit_start failed!!!\n");
-    }
-
-#ifdef SERVICE_OTA_ENABLED
-    linkkit_ota_init(fota_callback);
-#endif /* SERVICE_OTA_ENABLED */
-
-    while (1) {
-#ifndef CM_SUPPORT_MULTI_THREAD
-        linkkit_dispatch();
-#endif
-        now = uptime_sec();
-        if (prev_sec == now) {
-#ifdef CM_SUPPORT_MULTI_THREAD
-            HAL_SleepMs(100);
-#else
-            linkkit_yield(100);
-#endif /* CM_SUPPORT_MULTI_THREAD */
-            continue;
+            if (NULL == g_FaceMatchedData)
+            {
+                LOGE("ERR: Malloc mem failed!\n");
+            }
         }
 
-        /* about 30 seconds, assume trigger post property event about every 30s. */
 
-#ifdef POST_WIFI_STATUS
-        if(now % 10 == 0) {
-            post_property_wifi_status_once(sample_ctx);
-        }
-#endif
-        if (now % 30 == 0 && is_active(sample_ctx)) {
-            post_all_prop(sample_ctx);
-        }
 
-        if (exit) break;
+        //读取property属性文件
+        read_property();
 
-        /* after all, this is an sample, give a chance to return... */
-        /* modify this value for this sample executaion time period */
-        if (now > 60 * execution_time)
+        (*env)->GetJavaVM(env, &g_jvm);
+        g_obj = (*env)->NewGlobalRef(env, instance);
+
+        //起HTTP2线程
+        if (0 != pthread_create(&pid, NULL, thread_http2, NULL))
         {
-            exit = 0;
+            LOGE("thread_http2 create failed!\n");
+            break;
         }
+        execution_time = execution_time < 1 ? 1 : execution_time;
+        LOGI("sample execution time: %d minutes\n", execution_time);
+        LOGI("%s tsl from cloud\n", get_tsl_from_cloud == 0 ? "Not get" : "get");
+        HAL_SetProductKey(pdKey);
+        HAL_SetDeviceName(dvKey);
+        HAL_SetDeviceSecret(dvSec);
 
-        if (bSend == 0)
+        memset(sample_ctx, 0, sizeof(sample_context_t));
+        sample_ctx->thing_enabled = 1;
+
+        while (0 > linkkit_start(8, get_tsl_from_cloud, linkkit_loglevel_debug, &alink_ops, linkkit_cloud_domain_shanghai, sample_ctx))
         {
-            sleep(2);
-            NeedAuth(productKey, deviceKey, deviceSecret);
-            bSend = 1;
+            LOGE("Call linkkit_start failed!!!\n");
         }
 
-        prev_sec = now;
-    }
+    #ifdef SERVICE_OTA_ENABLED
+        linkkit_ota_init(fota_callback);
+    #endif /* SERVICE_OTA_ENABLED */
 
-    (*env)->ReleaseStringUTFChars(env, productKey_, productKey);
-    (*env)->ReleaseStringUTFChars(env, deviceKey_, deviceKey);
-    (*env)->ReleaseStringUTFChars(env, deviceSecret_, deviceSecret);
-    //linkkit_end();
-    LOGI("out of sample!\n");
-    return;
+        while (1) {
+    #ifndef CM_SUPPORT_MULTI_THREAD
+            linkkit_dispatch();
+    #endif
+            now = uptime_sec();
+            if (prev_sec == now) {
+    #ifdef CM_SUPPORT_MULTI_THREAD
+                HAL_SleepMs(100);
+    #else
+                linkkit_yield(100);
+    #endif /* CM_SUPPORT_MULTI_THREAD */
+                continue;
+            }
+
+            /* about 30 seconds, assume trigger post property event about every 30s. */
+
+    #ifdef POST_WIFI_STATUS
+            if(now % 10 == 0) {
+                post_property_wifi_status_once(sample_ctx);
+            }
+    #endif
+            if (now % 30 == 0 && is_active(sample_ctx)) {
+                post_all_prop(sample_ctx);
+            }
+
+            if (exit) break;
+
+            /* after all, this is an sample, give a chance to return... */
+            /* modify this value for this sample executaion time period */
+            if (now > 60 * execution_time)
+            {
+                exit = 0;
+            }
+
+            if (bSend == 0)
+            {
+                sleep(2);
+                NeedAuth(productKey, deviceKey, deviceSecret);
+                bSend = 1;
+            }
+
+            prev_sec = now;
+        }
+    }while(0);
+
 
     (*env)->ReleaseStringUTFChars(env, pdKey_, pdKey);
     (*env)->ReleaseStringUTFChars(env, dvKey_, dvKey);
@@ -1323,6 +1286,27 @@ Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfo(JNIEnv *env, jobject instance, js
     (*env)->ReleaseStringUTFChars(env, deviceKey_, deviceKey);
     (*env)->ReleaseStringUTFChars(env, deviceSecret_, deviceSecret);
     (*env)->ReleaseStringUTFChars(env, ServerURL_, ServerURL);
+    (*env)->ReleaseStringUTFChars(env, token_, token);
+    pthread_mutex_destroy(&g_AddedUserInfoBuffLock);
+    if (NULL != g_AddedUserInfoBuff)
+    {
+        free(g_AddedUserInfoBuff);
+        g_AddedUserInfoBuff = NULL;
+    }
+    if (NULL != g_FaceDetectedData)
+    {
+        free(g_FaceDetectedData);
+        g_FaceDetectedData = NULL;
+    }
+    if (NULL != g_FaceMatchedData)
+    {
+        free(g_FaceMatchedData);
+         g_FaceMatchedData = NULL;
+    }
+
+	//linkkit_end();
+    LOGI("out of sample!\n");
+    return;
 }
 
 JNIEXPORT jstring JNICALL
@@ -1357,9 +1341,10 @@ Java_pc_tingyi_facedoor_FaceDoor_RefreashAddedUserInfo(JNIEnv *env, jobject inst
     {
         LOGE("Out of memory!\n");
         pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
+		(*env)->ReleaseStringUTFChars(env, AddedUserInfo_, AddedUserInfo);
         return;
     }
-    bzero(g_AddedUserInfoBuff, strlen(AddedUserInfo));
+    bzero(g_AddedUserInfoBuff, strlen(AddedUserInfo)+1);
     strncpy(g_AddedUserInfoBuff, AddedUserInfo, strlen(AddedUserInfo));
     LOGI("g_AddedUserInfoBuff===>>>{%s}\n", g_AddedUserInfoBuff);
     pthread_mutex_unlock(&g_AddedUserInfoBuffLock);
@@ -1377,7 +1362,7 @@ Java_pc_tingyi_facedoor_FaceDoor_RefreashAddedUserInfo(JNIEnv *env, jobject inst
     // 调用HTTP2接口上传数据
     if (0 != pthread_create(&pid, NULL, thread1, "/sdcard/AddedUser"))
     {
-        LOGI("pthread_create1 failed!\n");
+        LOGE("thread1 create failed!\n");
     }
 
     (*env)->ReleaseStringUTFChars(env, AddedUserInfo_, AddedUserInfo);
@@ -1412,14 +1397,14 @@ Java_pc_tingyi_facedoor_FaceDoor_OnMatched(JNIEnv *env, jobject instance, jstrin
     {
         if (NULL == g_FaceMatchedData)
         {
-            LOGI("ERR: g_FaceMatchedData is NULL!");
+            LOGE("ERR: g_FaceMatchedData is NULL!");
             return;
         }
         memset(g_FaceMatchedData, 0, g_outlen);
         img_len = ABase64_Decode(facePicData, g_FaceMatchedData, g_outlen);
         if (-1 == img_len)
         {
-            LOGI("ERR: Faceimg is too big!");
+            LOGE("ERR: Faceimg is too big!");
             return;
         }
 
@@ -1437,7 +1422,7 @@ Java_pc_tingyi_facedoor_FaceDoor_OnMatched(JNIEnv *env, jobject instance, jstrin
         // 调用HTTP2接口上传数据
         if (0 != pthread_create(&pid, NULL, thread2, "/sdcard/onMatched.jpg"))
         {
-            LOGI("pthread_create1 failed!\n");
+            LOGE("pthread_create1 failed!\n");
         }
 
         memset(g_faceID, 0 , sizeof(g_faceID));
@@ -1466,17 +1451,16 @@ Java_pc_tingyi_facedoor_FaceDoor_OnDetected(JNIEnv *env, jobject instance, jstri
 
     if (g_IsDetectedUploading == JNI_FALSE)
     {
-        LOGI("Time Print1\n");
         if (NULL == g_FaceDetectedData)
         {
-            LOGI("ERR: g_FaceDetectedData is NULL!");
+            LOGE("ERR: g_FaceDetectedData is NULL!");
             return;
         }
         memset(g_FaceDetectedData, 0, g_outlen);
         img_len = ABase64_Decode(facePicData, g_FaceDetectedData, g_outlen);
         if (-1 == img_len)
         {
-            LOGI("ERR: Faceimg is too big!");
+            LOGE("ERR: Faceimg is too big!");
             return;
         }
 
@@ -1495,7 +1479,7 @@ Java_pc_tingyi_facedoor_FaceDoor_OnDetected(JNIEnv *env, jobject instance, jstri
         // 调用HTTP2接口上传数据
         if (0 != pthread_create(&pid, NULL, thread2FD, "/sdcard/onDetected.jpg"))
         {
-            LOGI("pthread_create1 failed!\n");
+            LOGE("pthread_create1 failed!\n");
         }
     }
     else

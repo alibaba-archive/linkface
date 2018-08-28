@@ -20,6 +20,7 @@ public class FaceDoor extends Thread
     String PackageNameTmp;
     String ClientIDTmp;
     String PublicKeyTmp;
+    String TokenTmp;
     String ServerURLTmp;
     int ServerPortTmp;
     MessageCallback MessageCallbackTmp;
@@ -38,6 +39,7 @@ public class FaceDoor extends Thread
      */
     public void API_setLocalVariables(String pdKey, String dvKey, String dvSec,
                                       String PackageName, String ClientID, String PublicKey,
+                                      String Token,
                                       String ServerURL, int ServerPort,
                                       MessageCallback MessageCallback)
     {
@@ -47,6 +49,7 @@ public class FaceDoor extends Thread
         PackageNameTmp = PackageName;
         ClientIDTmp = ClientID;
         PublicKeyTmp = PublicKey;
+        TokenTmp = Token;
         ServerURLTmp = ServerURL;
         ServerPortTmp = ServerPort;
         MessageCallbackTmp = MessageCallback;
@@ -151,7 +154,7 @@ public class FaceDoor extends Thread
     //设置设备三元组
     private native void setDeviceInfo(String pdKey, String dvKey, String dvSec,
                                       String PackageName, String ClientID, String PublicKey,
-                                      String ServerURL, int ServerPort,
+                                      String Token, String ServerURL, int ServerPort,
                                       MessageCallback MessageCallbackTmp);
 
     //VerifySDK授权
@@ -175,7 +178,7 @@ public class FaceDoor extends Thread
     public void run()
     {
         setDeviceInfo(pdKeyTmp, dvKeyTmp, dvSecTmp, PackageNameTmp, ClientIDTmp, PublicKeyTmp,
-                      ServerURLTmp, ServerPortTmp, MessageCallbackTmp);
+                      TokenTmp, ServerURLTmp, ServerPortTmp, MessageCallbackTmp);
     }
 
     public class SyncFacePicturesThread extends Thread {
