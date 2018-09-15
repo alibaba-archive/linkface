@@ -22,6 +22,7 @@ public class FaceDoor extends Thread
     String PublicKeyTmp;
     String TokenTmp;
     String ServerURLTmp;
+    String DeviceEncryptTmp;
     int ServerPortTmp;
     MessageCallback MessageCallbackTmp;
 
@@ -57,12 +58,30 @@ public class FaceDoor extends Thread
         return;
     }
 
+    public void API_setLocalVariablesV2(String pdKey, String dvKey, String dvSec,
+                                        String Token,String ServerURL, int ServerPort, 
+										String DeviceEncrypt,
+                                        MessageCallback MessageCallback)
+    {
+        pdKeyTmp = pdKey;
+        dvKeyTmp = dvKey;
+        dvSecTmp = dvSec;
+        TokenTmp = Token;
+        ServerURLTmp = ServerURL;
+        DeviceEncryptTmp = DeviceEncrypt;
+        ServerPortTmp = ServerPort;
+        MessageCallbackTmp = MessageCallback;
+
+        return;
+    }
+
     /**
      * <p> 向服务端上报'设备需授权'事件
      */
-    public void API_VerifySDKNeedAuth()
+    public void API_VerifySDKNeedAuth(String PackageName, String ClientID, String PublicKey,
+                                      String Token)
     {
-        VerifySDKNeedAuth();
+        VerifySDKNeedAuth(PackageName, ClientID, PublicKey, Token);
     }
 
     /**
@@ -156,9 +175,16 @@ public class FaceDoor extends Thread
                                       String PackageName, String ClientID, String PublicKey,
                                       String Token, String ServerURL, int ServerPort,
                                       MessageCallback MessageCallbackTmp);
+									  
+    //设置设备三元组(携带设备可逆加密信息) 
+    private native void setDeviceInfoV2(String pdKey, String dvKey, String dvSec,
+                                        String Token, String ServerURL, int ServerPort,
+                                        String DeviceEncryptTmp,
+                                        MessageCallback MessageCallbackTmp);
 
     //VerifySDK授权
-    private native void VerifySDKNeedAuth();
+    private native void VerifySDKNeedAuth(String PackageName, String ClientID, String PublicKey,
+                                          String Token);
 
     //上传添加成功的人脸图信息
     private native void RefreashAddedUserInfo(String AddedUserInfo);
@@ -177,8 +203,16 @@ public class FaceDoor extends Thread
 
     public void run()
     {
-        setDeviceInfo(pdKeyTmp, dvKeyTmp, dvSecTmp, PackageNameTmp, ClientIDTmp, PublicKeyTmp,
-                      TokenTmp, ServerURLTmp, ServerPortTmp, MessageCallbackTmp);
+        if ((null != DeviceEncryptTmp && DeviceEncryptTmp.length() > 0))
+        {
+            setDeviceInfoV2(pdKeyTmp, dvKeyTmp, dvSecTmp, TokenTmp, ServerURLTmp, ServerPortTmp,
+                            DeviceEncryptTmp,MessageCallbackTmp);
+        }
+        else
+        {
+            setDeviceInfo(pdKeyTmp, dvKeyTmp, dvSecTmp, PackageNameTmp, ClientIDTmp, PublicKeyTmp,
+                    TokenTmp, ServerURLTmp, ServerPortTmp,MessageCallbackTmp);
+        }
     }
 
     public class SyncFacePicturesThread extends Thread {
