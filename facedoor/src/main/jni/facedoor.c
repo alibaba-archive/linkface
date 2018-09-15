@@ -66,6 +66,7 @@ char  g_PackageName[128] = {0};
 char  g_Me[128] = {0};
 char  g_ClientId[128] = {0};
 char  g_Token[128] = {0};
+char  g_DeviceEncrypt[1024] = {0};
 float g_SyncRate = 1.0;
 char  g_faceID[64] = {0};
 float g_score = 0;
@@ -987,6 +988,41 @@ static void NeedAuth(char * PackageName, char * ClientID, char * PublicKey)
     }
 }
 
+/**
+ *  设备授权事件上报(携带可逆设备加密信息)
+ */
+static void NeedAuthV2()
+{
+    int  ret = 0;
+    char event_output_identifier[128];
+
+    snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s",
+             "NeedAuthVerifySDK", "Token");
+
+    linkkit_set_value(linkkit_method_set_event_output_value,
+                      g_sample_context.thing,
+                      event_output_identifier,
+                      g_Token, NULL);
+
+    snprintf(event_output_identifier, sizeof(event_output_identifier), "%s.%s",
+             "NeedAuthVerifySDK", "DeviceEncrypt");
+
+    linkkit_set_value(linkkit_method_set_event_output_value,
+                      g_sample_context.thing,
+                      event_output_identifier,
+                      g_DeviceEncrypt, NULL);
+
+    ret = linkkit_trigger_event(g_sample_context.thing, "NeedAuthVerifySDK", NULL);
+    if (ret > 0)
+    {
+        LOGI("send success:%d\n", ret);
+    }
+    else
+    {
+        LOGE("send err id:%d\n", ret);
+    }
+}
+
 int file_upload_callback1(int result ,char *store_id, void *user_data)
 {
     if (result == 0)
@@ -1315,12 +1351,6 @@ Java_pc_tingyi_facedoor_FaceDoor_getLicenseData(JNIEnv *env, jobject instance) {
 }
 
 JNIEXPORT void JNICALL
-Java_pc_tingyi_facedoor_FaceDoor_VerifySDKNeedAuth(JNIEnv *env, jobject instance) {
-    NeedAuth(g_PackageName, g_Me, g_ClientId);
-    return;
-}
-
-JNIEXPORT void JNICALL
 Java_pc_tingyi_facedoor_FaceDoor_RefreashAddedUserInfo(JNIEnv *env, jobject instance,
                                                      jstring AddedUserInfo_) {
     pthread_t pid;
@@ -1501,4 +1531,198 @@ Java_pc_tingyi_facedoor_FaceDoor_SetGroupID(JNIEnv *env, jobject instance, jstri
     write_property();
     LOGI("g_sample_context.GroupID:%s!\n", g_stFaceDoorProperty.acFaceGroupID);
     (*env)->ReleaseStringUTFChars(env, groupID_, groupID);
+}
+
+JNIEXPORT void JNICALL
+Java_pc_tingyi_facedoor_FaceDoor_VerifySDKNeedAuth(JNIEnv *env, jobject instance,
+                                                   jstring PackageName_, jstring ClientID_,
+                                                   jstring PublicKey_, jstring Token_) {
+    const char *PackageName = (*env)->GetStringUTFChars(env, PackageName_, 0);
+    const char *ClientID = (*env)->GetStringUTFChars(env, ClientID_, 0);
+    const char *PublicKey = (*env)->GetStringUTFChars(env, PublicKey_, 0);
+    const char *Token = (*env)->GetStringUTFChars(env, Token_, 0);
+
+    // TODO
+    strncpy(g_PackageName, PackageName, sizeof(g_PackageName));
+    strncpy(g_Me, PublicKey, sizeof(g_Me));
+    strncpy(g_ClientId, ClientID, sizeof(g_ClientId));
+    strncpy(g_Token, Token, sizeof(g_Token));
+
+    NeedAuth(g_PackageName, g_Me, g_ClientId);
+
+    (*env)->ReleaseStringUTFChars(env, PackageName_, PackageName);
+    (*env)->ReleaseStringUTFChars(env, ClientID_, ClientID);
+    (*env)->ReleaseStringUTFChars(env, PublicKey_, PublicKey);
+    (*env)->ReleaseStringUTFChars(env, Token_, Token);
+
+
+}
+
+
+JNIEXPORT void JNICALL
+Java_pc_tingyi_facedoor_FaceDoor_setDeviceInfoV2(JNIEnv *env, jobject instance, jstring pdKey_,
+                                                 jstring dvKey_, jstring dvSec_, jstring Token_,
+                                                 jstring ServerURL_, jint ServerPort,
+                                                 jstring DeviceEncryptTmp_,
+                                                 jobject MessageCallbackTmp) {
+    sample_context_t* sample_ctx = &g_sample_context;
+    int execution_time = 0;
+    int get_tsl_from_cloud = 1;
+    int exit = 0;
+    int bSend = 0;
+    pthread_t  pid;
+    unsigned long long now = 0;
+    unsigned long long prev_sec = 0;
+    fpos_t fpos; //当前位置
+    int    fileLenth = 0;
+    const char *pdKey = (*env)->GetStringUTFChars(env, pdKey_, 0);
+    const char *dvKey = (*env)->GetStringUTFChars(env, dvKey_, 0);
+    const char *dvSec = (*env)->GetStringUTFChars(env, dvSec_, 0);
+    const char *Token = (*env)->GetStringUTFChars(env, Token_, 0);
+    const char *ServerURL = (*env)->GetStringUTFChars(env, ServerURL_, 0);
+    const char *DeviceEncrypt = (*env)->GetStringUTFChars(env, DeviceEncryptTmp_, 0);
+
+    strncpy(g_ProductKey, pdKey, sizeof(g_ProductKey));
+    strncpy(g_DeviceName, dvKey, sizeof(g_DeviceName));
+    strncpy(g_DeviceSecret, dvSec, sizeof(g_DeviceSecret));
+    strncpy(g_ServerURL, ServerURL, sizeof(g_ServerURL));
+    strncpy(g_Token, Token, sizeof(g_Token));
+    strncpy(g_DeviceEncrypt, DeviceEncrypt, sizeof(g_DeviceEncrypt));
+    g_ServerPort = ServerPort;
+
+    do
+    {
+        pthread_mutex_init(&g_AddedUserInfoBuffLock, NULL);
+
+        if (NULL == g_AddedUserInfoBuff)
+        {
+            FILE *p = fopen("/sdcard/AddedUser", "rb");
+
+            if (p != NULL)
+            {
+                fgetpos(p, &fpos); //获取当前位置
+                fseek(p, 0, SEEK_END);
+                fileLenth = ftell(p);
+                fsetpos(p,&fpos); //恢复之前的位置
+
+                g_AddedUserInfoBuff = (char *)malloc(fileLenth+1);
+                if (g_AddedUserInfoBuff == NULL)
+                {
+                    LOGE("No Memory!\n");
+                    fclose(p);
+                    break;
+                }
+                bzero(g_AddedUserInfoBuff, fileLenth+1);
+
+                fgets(g_AddedUserInfoBuff, fileLenth, p);
+                fclose(p);
+            }
+
+        }
+
+        if (NULL == g_FaceDetectedData)
+        {
+            g_FaceDetectedData = (char *) malloc(g_outlen);
+
+            if (NULL == g_FaceDetectedData)
+            {
+                LOGE("ERR: Malloc mem failed!\n");
+            }
+        }
+
+        if (NULL == g_FaceMatchedData)
+        {
+            g_FaceMatchedData = (char*)malloc(g_outlen);
+
+            if (NULL == g_FaceMatchedData)
+            {
+                LOGE("ERR: Malloc mem failed!\n");
+            }
+        }
+
+
+
+        //读取property属性文件
+        read_property();
+
+        (*env)->GetJavaVM(env, &g_jvm);
+        g_obj = (*env)->NewGlobalRef(env, instance);
+
+        //起HTTP2线程
+        if (0 != pthread_create(&pid, NULL, thread_http2, NULL))
+        {
+            LOGE("thread_http2 create failed!\n");
+            break;
+        }
+        execution_time = execution_time < 1 ? 1 : execution_time;
+        LOGI("sample execution time: %d minutes\n", execution_time);
+        LOGI("%s tsl from cloud\n", get_tsl_from_cloud == 0 ? "Not get" : "get");
+        HAL_SetProductKey(pdKey);
+        HAL_SetDeviceName(dvKey);
+        HAL_SetDeviceSecret(dvSec);
+
+        memset(sample_ctx, 0, sizeof(sample_context_t));
+        sample_ctx->thing_enabled = 1;
+
+        while (0 > linkkit_start(8, get_tsl_from_cloud, linkkit_loglevel_debug, &alink_ops, linkkit_cloud_domain_shanghai, sample_ctx))
+        {
+            LOGE("Call linkkit_start failed!!!\n");
+        }
+
+#ifdef SERVICE_OTA_ENABLED
+        linkkit_ota_init(fota_callback);
+#endif /* SERVICE_OTA_ENABLED */
+
+        while (1) {
+#ifndef CM_SUPPORT_MULTI_THREAD
+            linkkit_dispatch();
+#endif
+            now = uptime_sec();
+            if (prev_sec == now) {
+#ifdef CM_SUPPORT_MULTI_THREAD
+                HAL_SleepMs(100);
+#else
+                linkkit_yield(100);
+#endif /* CM_SUPPORT_MULTI_THREAD */
+                continue;
+            }
+
+            /* about 30 seconds, assume trigger post property event about every 30s. */
+
+#ifdef POST_WIFI_STATUS
+            if(now % 10 == 0) {
+                post_property_wifi_status_once(sample_ctx);
+            }
+#endif
+            if (now % 30 == 0 && is_active(sample_ctx)) {
+                post_all_prop(sample_ctx);
+            }
+
+            if (exit) break;
+
+            /* after all, this is an sample, give a chance to return... */
+            /* modify this value for this sample executaion time period */
+            if (now > 60 * execution_time)
+            {
+                exit = 0;
+            }
+
+            if (bSend == 0)
+            {
+                sleep(2);
+                LOGI("Begin to Call NeedAuth~~~");
+                NeedAuthV2(g_ProductKey, g_DeviceName, g_DeviceSecret);
+                bSend = 1;
+            }
+
+            prev_sec = now;
+        }
+    }while(0);
+
+    (*env)->ReleaseStringUTFChars(env, pdKey_, pdKey);
+    (*env)->ReleaseStringUTFChars(env, dvKey_, dvKey);
+    (*env)->ReleaseStringUTFChars(env, dvSec_, dvSec);
+    (*env)->ReleaseStringUTFChars(env, Token_, Token);
+    (*env)->ReleaseStringUTFChars(env, ServerURL_, ServerURL);
+    (*env)->ReleaseStringUTFChars(env, DeviceEncryptTmp_, DeviceEncrypt);
 }
